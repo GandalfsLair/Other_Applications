@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Blue Box Operator</title>
+<style>
+    body {
+      background-color: black;
+      color: #33ff33;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0;
+      padding: 0;
+    }
+
+    #bluebox, #operatorConsole {
+      padding: 20px;
+      display: none;
+    }
+
+    #bluebox.active, #operatorConsole.active {
+      display: block;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(4, 60px);
+      gap: 10px;
+    }
+
+    .key, .button {
+      background-color: #111;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .buttonpad {
+      display: grid;
+      grid-template-columns: repeat(4, 120px);
+      gap: 10px;
+    }
+
+    #toneOutput {
+      margin-top: 15px;
+      background-color: #000;
+      padding: 10px;
+      border: 1px solid #0f0;
+      min-height: 40px;
+      white-space: pre;
+    }
+
+    #consoleOutput {
+      white-space: pre-wrap;
+      background-color: #000;
+      border: 1px solid #0f0;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    input#consoleInput {
+      background-color: #000;
+      border: none;
+      color: #0f0;
+      width: 100%;
+      font-family: inherit;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+<!-- Blue Box Interface -->
+<div class="active" id="bluebox">
+  <h2>*** BLUE BOX OPERATIONS (v1.3.7) ***</h2>
+  <div id="toneOutput">TONE OUT: </div>
+
+  <div style="margin-top: 20px;">
+    <div class="keypad">
+      <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">A</div>
+      <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">B</div>
+      <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key">C</div>
+      <div class="key">*</div><div class="key">0</div><div class="key">#</div><div class="key">D</div>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <h3>Function Panel</h3>
+      <div class="buttonpad">
+        <div class="button" title="Initiates an EU trunk line dial." onclick="autodialEurope()">Autodial (EU)</div>
+        <div class="button" title="Initiates a NUS trunk line dial." onclick="autodialNAmerica()">Autodial (US)</div>
+        <div class="button" title="Initiates a Canadian trunk line dial." onclick="autodialCanada()">Autodial (CAN)</div>
+        <div class="button" title="Initiates an Australian trunk line dial." onclick="autodialAustralia()">Autodial (AUS)</div>
+
+        <div class="button" title="Switches to the Operator console." onclick="transitionToConsole()">Operator</div>
+        <div class="button" title="Clears the current tone output." onclick="clearToneOutput()">Clear Output</div>
+       
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Operator Console -->
+<div id="operatorConsole">
+<h2>*** BELL SYS OPS CONSOLE ***</h2>
+<div id="consoleOutput">Initializing console...</div>
+<input autocomplete="off" id="consoleInput" placeholder="Enter command..." type="text"/>
+</div>
+<script>
+    const toneOutput = document.getElementById('toneOutput');
+    const keys = document.querySelectorAll('.keypad .key');
+    let toneSequence = '';
+
+    keys.forEach(key => {
+      key.addEventListener('click', () => {
+        const tone = key.textContent;
+        toneOutput.textContent += tone;
+        toneSequence += tone;
+
+// Secret code to access operator console
+
+        if (toneSequence.endsWith('137')) {
+            toneOutput.textContent = "*** LOOPBACK TEST: ACTIVE ***\nSystem Reset: IN EFFECT\n";
+        }
+        if (toneSequence.endsWith('911')) {
+            toneOutput.textContent = "*** EMERGENCY OVERRIDE CODE RECOGNIZED ***\nRouting to Priority Operator Line...\n";
+        }
+        if (toneSequence.endsWith('999')) {
+            toneOutput.textContent = "*** POLICE ROUTINE ACTIVATED ***\nPriority Call Trace Initiated...\n";
+        }
+        if (toneSequence.endsWith('123')) {
+            toneOutput.textContent = "*** LINE SEIZED ***\nLine Closed: OVERRIDE ACTIVE\n";
+        }
+        if (toneSequence.endsWith('###')) {
+            toneOutput.textContent = "*** LINE TEST ENGAGED ***\nLine Signal: ACTIVE (Tone)\n";
+        }
+        if (toneSequence.endsWith('***')) {
+            toneOutput.textContent = "*** LINE TEST ENGAGED ***\nLine Signal: ACTIVE (Data)\n";
+        }
+        if (toneSequence.endsWith('#**')) {
+            toneOutput.textContent = "*** LINE TEST ENGAGED ***\nLine Signal: INACTIVE (Line Dead)\n";
+        }
+        if (toneSequence.endsWith('**0')) {
+            toneOutput.textContent = "*** LINE TEST ENGAGED ***\nContinuous Phase Test: ACTIVE\n";
+        }
+        if (toneSequence.endsWith('**9')) {
+            toneOutput.textContent = "*** LINE TEST ENGAGED ***\nContinuous Phase Test: INACTIVE\n";
+        }
+        if (toneSequence.endsWith('*11')) {
+            autodialEurope();
+        }
+        if (toneSequence.endsWith('#11')) {
+            autodialNAmerica();
+        }
+        if (toneSequence.endsWith('**1')) {
+            autodialCanada();
+        }
+        if (toneSequence.endsWith('##1')) {
+            autodialAustralia();
+        }
+        if (toneSequence.endsWith('*#0')) {
+            transitionToConsole();
+        }
+        if (toneSequence.endsWith('00*')) {
+            clearToneOutput();
+        }
+      });
+    });
+
+    //KEY PRESS EVENTS FOR BLUEBOX CONSOLE    
+document.addEventListener('keydown', (e) => {
+  if (!e.altKey || !e.ctrlKey) return; // Only respond if BOTH ALT and CTRL are held
+  e.preventDefault();
+      switch (e.key.toLowerCase()) {
+        case 'z':
+          toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Locked\nCaller ID: +441234567890\n";
+          break;
+        case 'x':
+          toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Failed\nCaller ID: Unknown!\n";
+          break;
+        case 'c':
+          toneOutput.textContent = "*** OUTGOING CALL ***\nSignal: Locked\nCalled ID: +4401234567890\n";
+          break;
+        case 'v':
+          toneOutput.textContent = "*** OUTGOING CALL ***\nSignal: Failed\nCalled ID: Unknown!\n";
+          break;
+        case 'b':
+          toneOutput.textContent = "*** INCOMING CALL ***\nData Stream: Locked\nStream IDs: 192.168.10.1 >> 10.10.1.22\n";
+          break;
+        case 'n':
+          toneOutput.textContent = "*** INCOMING CALL ***\nData Stream: Failed\nStream IDs: Unknown!\n";
+          break;
+        case 'm':
+          toneOutput.textContent = "*** OUTGOING CALL ***\nData Stream: Locked\nStream IDs: 10.10.1.22 >> 192.168.10.1\n";
+          break;
+        case ',':
+          toneOutput.textContent = "*** OUTGOING CALL ***\nData Stream: Failed\nStream IDs: Unknown!\n";
+          break;
+        case '.':
+          toneOutput.textContent = "*** SATELLITE LINK ***\nAccessing... \nData Link Established\n";
+          break;
+        case '/':
+          toneOutput.textContent = "*** SATELLITE LINK ***\nAccessing... \nLink Failed!\n";
+          break;
+        case ';':
+          toneOutput.textContent = "*** CONTINUOUS PHASE TEST ***\nLine Fault: FOUND! \nRecommend: Activate Loopback Test\n";
+          break;  
+        }
+    });
+
+    
+
+    function transitionToConsole() {
+      document.getElementById('bluebox').classList.remove('active');
+      document.getElementById('operatorConsole').classList.add('active');
+      setTimeout(() => appendConsoleOutput('*** TRUNK SEIZED ***\n*** ROUTING TO OPERATOR CONSOLE... ***'), 500);
+    }
+
+    function transitionToBluebox() {
+      document.getElementById('bluebox').classList.add('active');
+      document.getElementById('operatorConsole').classList.remove('active');
+      setTimeout(() => toneOutput.textContent = "*** TRUNK RELEASED ***\n*** ROUTING OUT OF CONSOLE ***", 500);
+    }
+
+    const consoleInput = document.getElementById('consoleInput');
+    const consoleOutput = document.getElementById('consoleOutput');
+
+    const fakeCommands = {
+      'login operator': '[!] Login accepted.\n[*] Access Level: OPERATOR\n[*] Connected to Main Trunk Router...',
+      'logout operator': '[!] Logout request sent.\n[*] Access Level: OPERATOR\n[!] Disconnecting from Main Trunk Router\n[*] Session: ENDED',
+      'kick operator': '[!] Local Operator Access: IDENTIFIED\n[*] - Connection: LOCATED\n[*] - Status: ONLINE\n[!] *TERMINATION SIGNAL SENT!*\n[!] - Local Operator Access: REVOKED',
+      'claim root': '[!] Local Operator Access: EMPTY\n[!] - Connection: MISSING\n[!] - Status: NO OPERATOR!\n[*] *CONNECTION SIGNAL SENT!*\n[!] - Local Operator Access: CLAIMED',
+      'show trunk': '[*] Main Trunk Router #13742\n[*] Sub-branches \n - #FE00\n - #EE42\n - #AE01\n - #BD22\n - #CE59 \n- *Restricted*',
+      'seize line #FE00': '[*] Line #FE00\n[*] - Access Level: OPERATOR\n[*] - Sub-patch: Main Trunk Router',
+      'reroute #EE42': '[*] Line #EE42\n - STATUS: Online\n - IMSI: Locked\n - Reroute Line In Progress...\n[!] Connection Reroute: EE42 Running!',
+      'trace AE01': '[!] Tracing line AE01...\n[*] TruckLine: E1D8\n[!] Location: 137 High Street, London, E12 3FU\n[*] Trace Complete.',
+      'stop BD22': '[!] Tracing line BD22...\n[*] TruckLine: EF41\n[!] Status: *!DATAFLOW STOPPED!*\n[!] Note: *!RESTART REQUIRED!*',
+      'start CE59': '[!]Tracing line AE01...\n[* ]TruckLine: 22F0\n[!] Status: DATAFLOW RESTARTING\n[!] Note: IMSI Refresh and Update in process!',
+      'access DD01': '[!] Accessing line DD01\n[*] Access Level: OPERATOR\n[!] Access Granted!\n[*] Line DD01 now accessed',
+      'trace call': '[!] Tracing call in progress...\n[*] Trunkline: 0042\n[*] Connection: IMSI13742-FE00/01\n[*] Cross Ref: Mobile +44(0)7721 769352 active',
+      'divert call': '[!] Routing call in progress...\n[*] TrunkLine: 0044\n[!] Connection: Active IMSI now redirected to 555 9876',
+      'monitor trunk': '[!] Monitoring Trunkline...\n[*] Data packets: Detected.\n[*] Line Signal: Active\n[!] Status: LINE ACTIVE',
+      'monitor line': '[!] Monitoring Trunkline...\n[*] Data packets: Not Detected.\n[*] Line Signal: Inactive\n[!] Status: LINE INACTIVE/INOPERABLE',
+      'gprs refresh':'[!] Connecting to Main Trunk...\n[*] GPRS ReRoute <6465550182> to <8005550199>\n[!] ReRoute Successful. Dialling <8005550199>' ,
+      'lock imsi':'[!] Connecting to Truck Router...\n[*] IMSI Cache:ACCESSING...\n[!] IMSI Cache:LOCKED',
+      'imsi flush':'[!] IMSI Cache:ACCESSING...\n[*] IMSI Cache:FLUSHING...\n[!] IMSI Cache:CLEARED',
+      'router link':'[!] Connecting to Truck Router...\n[!] Admin Port:ACCESSING...\n[!] Admin:LINKED',
+      'route traffic':'[!] Trunk Router:ACCESSED\n[!] Traffic ReRoute [AC12] to [ADMIN]\n[*] Traffic:REROUTED',
+      'traffic sniff':'[*] Traffic ReRoute: VIA [ADMIN]\n [*] Traffic Sniff:IN PROCESS...\n[!] Traffic: [FE1374222] ~ LOCKED',
+      'scan celltower':'[!] Connecting to Tower...\n[*] Accessing Database...\n[!] Access: GRANTED',
+      'tower off':'[!] Connecting to Tower...\n[*] Termination Sequence: STARTED\n[!] Tower Status: OFFLINE',
+      'tower on':'[!] Connecting to Tower...\n[*] Activation Sequence: STARTED\n[!] Tower Status: ONLINE',
+      'spoof tower':'[*] Tower Broadcast Initiated\n[*] Mobile Devices Rerouted\n[*] IMSI Catcher Online',
+      'spoof cell':'[*] Local Cell Isolated\n[*] Mobile Devices Rerouted\n[*] IMSI Catcher Online',
+      'spawn cell':'[*] Local Cell Isolated\n[*] Respawn Sequence: STARTED\n[*] Cell Status: ONLINE\n[*] Cell Identifier>> FE13722',
+      'download':'[!] Saved Data Routed to Shared Location\n[*] Data Available',
+      'sat uplink':'[!] <Uplink Requested: SAT-001>\n[*] <Orbit Position: 62.2° N>\n[!] <Status: Encrypted handshake successful>',
+      'spoof sms':'[*] Caller ID: +441234567890\n[!] Sending: "Your Verification Code is 2242137"\n[*] Status: RECIEPT - Confirmed]',
+      'locate':'[*] Caller ID: +441234567890\n[!] Scanning GPS Data Stream...\n[*] Device Located:50.5072N 0.1276W - London, UK',
+      'isolate':'[*] Cross connecting: Tower>>Cell>>Caller\n[!] Sending isolation signal...\n[*] Status: Isolation Confirmed\n[!] Tower>>Cell>>Device Isolated',
+      'connect':'[*] Admin Connection: Tower>Cell>Device\n[!] Carrier Connect: ACTIVE\n[*] Device Connection: CONFIRMED',      
+      'escape dev':'[*] Caller ID: +441234567890\n[!] Accessing Device Basecode...\n[!] Device Escape Started...\n[*] Device Escape: SUCCESSFUL\n[*] Access Granted to Device System',
+      'exploit':'[*] Caller ID: +441234567890\n[!] Loading Payload...\n[!] Upload to Device...\n[*] Upload (Payload): SUCCESSFUL\n[*] Awaiting Call Back from Active Beacon...',
+      'device check':'[*] Caller ID: +441234567890\n[!] Accessing Device Basecode...\n[!] Scanning for Access Anomolies...\n[!] Anomalies Detected: Device is Compromised!',
+      'device scan':'[*] Caller ID: +441234567890\n[!] Accessing Device Basecode...\n[!] Scanning for Access Anomolies...\n[*] No Anomolies Detected: Device is Clean!',
+
+'help': 'Available Commands:\n- login operator - logout operator - kick operator - claim root\n- show trunk - seize line <#> - reroute <#> - trace <#>\n- stop <#> - start <#> - access <#> - trace call <number>\n- divert <from> to <to> - monitor trunk <id> - trace call - divert call\n- monitor trunk - monitor line - gprs refresh - lock imsi\n- imsi flush - router link - route traffic - traffic sniff\n- scan celltower - tower off - tower on - spoof tower\n- spoof cell - spawn cell - download - sat uplink\n- spoof sms - locate - isolate - connect - escape dev\n- exploit - device check - device scan'
+    };
+
+    consoleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cmd = consoleInput.value.trim();
+        appendConsoleOutput(`> ${cmd}`);
+        if (fakeCommands[cmd]) {
+          appendConsoleOutput(fakeCommands[cmd]);
+        } else {
+          appendConsoleOutput('Unknown command. Type "help" for options.');
+        }
+        consoleInput.value = '';
+      }
+    });
+
+    function appendConsoleOutput(text) {
+      consoleOutput.textContent += '\n' + text;
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function clearToneOutput() {
+  toneOutput.textContent = 'TONE OUT: ';
+  toneSequence = '';
+}
+  
+// === KEYBOARD INPUT SUPPORT FOR BLUEBOX ===
+document.addEventListener("keydown", function(event) {
+  const key = event.key;
+  const validKeys = ["0","1","2","3","4","5","6","7","8","9","*","#"];
+  if (validKeys.includes(key)) {
+    const btn = Array.from(document.querySelectorAll(".key")).find(k => k.textContent === key);
+    if (btn) btn.click();
+  }
+});
+
+// === DRAMATIC SEQUENCE: AUTODIAL EUROPE ===
+function autodialEurope() {
+  const tones = ["0", "1", "0", "4", "4", "7", "3", "2"];
+  const toneOutput = document.getElementById("toneOutput");
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  let index = 0;
+  function playNextTone() {
+    if (index < tones.length) {
+      toneOutput.textContent += ">> " + tones[index] + " ";
+      index++;
+      setTimeout(playNextTone, 500);
+    } else {
+      toneOutput.textContent += "\nCONNECTED: European Node Secure Line.";
+    }
+  }
+  playNextTone();
+}
+
+function autodialNAmerica() {
+  const tones = ["0", "1", "3", "7", "2", "2", "4", "2"];
+  const toneOutput = document.getElementById("toneOutput");
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  let index = 0;
+  function playNextTone() {
+    if (index < tones.length) {
+      toneOutput.textContent += ">> " + tones[index] + " ";
+      index++;
+      setTimeout(playNextTone, 500);
+    } else {
+      toneOutput.textContent += "\nCONNECTED: North American Node Secure Line.";
+    }
+  }
+  playNextTone();
+}
+function autodialCanada() {
+    const tones = ["0", "1", "8", "2", "5", "9", "0", "1"];
+    toneOutput.textContent = "Dialing International Trunk...\n";
+    let index = 0;
+    function playNextTone() {
+      if (index < tones.length) {
+        toneOutput.textContent += ">> " + tones[index] + " ";
+        index++;
+        setTimeout(playNextTone, 500);
+      } else {
+        toneOutput.textContent += "\nCONNECTED: Canadian Node Secure Line.";
+      }
+    }
+    playNextTone();
+  }
+
+  function autodialAustralia() {
+    const tones = ["0", "1", "1", "0", "8", "9", "4", "2"];
+    toneOutput.textContent = "Dialing International Trunk...\n";
+    let index = 0;
+    function playNextTone() {
+      if (index < tones.length) {
+        toneOutput.textContent += ">> " + tones[index] + " ";
+        index++;
+        setTimeout(playNextTone, 500);
+      } else {
+        toneOutput.textContent += "\nCONNECTED: Australian Node Secure Line.";
+      }
+    }
+    playNextTone();
+  }
+
+//KEY PRESS EVENTS IN THE OPERATOR SCREEN
+
+document.addEventListener('keydown', (e) => {
+  if (!e.altKey || !e.ctrlKey) return; // Only respond if BOTH ALT and CTRL are held
+      switch (e.key.toLowerCase()) {
+        case 'z':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal Locked\nCaller ID: +441234567890\n");
+          break;
+        case 'x':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nBaud Rate: 2400bps\nTTY Stream Active - Data Written To Store\n");
+          break;
+        case 'c':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL***\nSignal Locked\nCaller geolocated: 51.012N 0.1342W - London, UK\n");
+          break;
+          case 'v':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal Locked\nMonitoring: ACTIVE\n");
+          break;
+        case 'b':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nBaud Rate: 2400bps\nEncrypted Data Stream Detected - Data Written To Store\n");
+          break;
+        case 'n':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL***\nSignal Locked\nCloning IMSI Data - Handset Spoof\n");
+          break;
+        case 'm':
+          appendConsoleOutput("*** INTERCEPTING INCOMING CALL***\nSignal: Failed\nUnable to Proceed!\n");
+          break;
+        case '\'':
+          clearConsole();
+          break;
+        case ';':
+          transitionToBluebox();
+          break;
+      }
+    });
+
+// === COMMAND CHAINING + COMMAND HISTORY ===
+let commandHistory = [];
+let historyIndex = -1;
+
+document.getElementById("commandInput").addEventListener("keydown", function(event) {
+  if (event.key === "Enter") {
+    const input = this.value;
+    commandHistory.push(input);
+    historyIndex = commandHistory.length;
+    const commands = input.split("&&").map(cmd => cmd.trim());
+    let outputArea = document.getElementById("commandOutput");
+    let delay = 0;
+    commands.forEach((cmd, i) => {
+      setTimeout(() => {
+        const response = commandResponses[cmd] || `Unknown command: ${cmd}`;
+        outputArea.textContent += `> ${cmd}\n${response}\n`;
+        outputArea.scrollTop = outputArea.scrollHeight;
+      }, delay);
+      delay += 600;
+    });
+    this.value = "";
+    event.preventDefault();
+  }
+  // History Navigation
+  if (event.key === "ArrowUp") {
+    if (historyIndex > 0) {
+      historyIndex--;
+      this.value = commandHistory[historyIndex];
+    }
+  }
+  if (event.key === "ArrowDown") {
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      this.value = commandHistory[historyIndex];
+    } else {
+      this.value = "";
+    }
+  }
+});
+
+
+</script>
+</body>
+</html>

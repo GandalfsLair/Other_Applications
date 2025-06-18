@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Implant Terminal Control</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background-color: #000;
+      color: #0f0;
+      margin: 0;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #terminal-output {
+      height: 90vh;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.3;
+    }
+
+    #terminal-input {
+      display: flex;
+    }
+
+    #terminal-prompt {
+      margin-right: 10px;
+    }
+
+    #terminal-cmd {
+      background-color: transparent;
+      border: none;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      width: 80%;
+      outline: none;
+    }
+
+    .success { color: #0f0; }
+    .error { color: #f00; }
+    .warning { color: #ff0; }
+    .info { color: #0af; }
+  </style>
+</head>
+<body>
+  <div id="terminal-output">
+    REAPER - Cable Implant Control v2.4.1 
+    Type 'help' for available commands.
+    
+>
+  </div>
+  <div id="terminal-input">
+    <span id="terminal-prompt">></span>
+    <input type="text" id="terminal-cmd" autofocus>
+  </div>
+
+  <script>
+const endUsedValues = ['COM', 'MOB', 'BOTH'];
+let endUsed = endUsedValues[Math.floor(Math.random() * endUsedValues.length)];
+
+    // --- Implant Command Responses ---
+    const commandResponses = {
+// Basic session controls
+      activate: "[+] Establishing connection...\n[+] Implant activated successfully",
+      deactivate: "[+] Terminating sessions...\n[+] Implant deactivated",
+      pause: "[+] Connection paused. Implant in stealth mode.",
+      stealth: "[+] Implant entering stealth mode.",
+      destro: "[!] WARNING: All implant data and memory will be destroyed.\n[+] Self-destruct initialized.",
+      clear: "",
+
+      // Connectivity and scanning
+      conns: "[+] Listing nearby connections:\n- WiFi: CorpNet_5G\n- Bluetooth: BT-Speaker\n- NFC: PaymentPad",
+      scan: "[+] Scanning network...\n192.168.1.1    Router\n192.168.1.45   Target-PC\n192.168.1.78   Target-Phone",
+      wifi: "[+] Current SSID: CorpNet_5G\n[+] Available: GuestNet, DevNet, HomeNet",
+      blue: "[+] BlueTooth connections: BT-Speaker\n[+] BlueTooth credentials: Available",
+      nfc: "[+] NFC connections: PaymentPad\n[+] BlueTooth credentials: Available",
+      connect: "[+] Attempting connection...\n[+] Protocol handshake complete\n[+] Credential available.",
+
+      // Device interactions
+      engage_com: "[+] Computer USB channel activated.",
+      engage_mob: "[+] Mobile USB channel activated.",
+      engage_mitm: "[+] MITM mode active: bridging computer <-> mobile",
+      used: null, // We'll handle this dynamically
+      dev_wifi: "[+] Device SSID: John's Phone\n[+] Status: Hidden",
+      dev_blue: "[+] Device BlueTooth: iPods\n[+] Status: Online",
+      dev_nfc: "[+] Device NFC: test_01_13742\n[+] Status: Hidden",
+      data_load: "[+] Data load from external store...\n[+] Status: Completed",
+      data_save: "[+] Data save to external store\n[+] Status: Completed",
+
+      // Computer Only Options
+      beacons: "[+] Beacons stored:\n1. beacon_tcp_rshell\n2. beacon_dns_stager\n3. beacon_https",
+      beacon_dep: "[+] Beacon deployed from active slot.",
+
+      // Mobile Only Options
+      clone: "[+] Cloning SIM card...\n[+] Data uploaded to external store",
+      cp_text: "[+] Copying texts and messages...\n[+] Data uploaded to external store",
+      cp_addr: "[+] Copying address book and contacts...\n[+] Data uploaded to external store",
+      cell_ping: "[+] Pinging attached cell...\n [+]Cell #13742 connected to attached IMSI.",
+      tower_ping: "[+] Pinging attached tower...\n[+] Tower ping: acknowledged.\n[+] Tower #24731 awaits... ",
+
+      // Man in the Middle Only Options
+      sniff: "[+] Traffic sniff activated...\n[+] Data uploaded to external store\n[+] Captured keystrokes:user@target-pc: p a s s w o r d 1 2 3 Enter\n[+] Captured keystrokes:user@target-pc: s s h a d m i n @ 1 0 . 0 . 0 . 1 Enter",
+
+      // Payload and memory
+      payload_mem: "[+] Payloads stored:\n1. payload_keydump\n2. payload_screenshot\n3. payload_autopwn",
+      payload: "[+] Payload deployed from active slot.",
+
+      // Data transfer and command injection
+      upload: "[+] Preparing file...\n[+] Upload complete (3.2MB transferred)",
+      download: "[+] Retrieving data...\n[+] Download complete (1.7MB received)",
+      key_on: "[+] Keylogger active",
+      key_off: "[+] Keylogger inactive",
+      inject: null, // handled dynamically
+
+      // Audio/video/misc
+      cam: "[+] Camera access granted",
+      mic: "[+] Microphone streaming initialized",
+      save_cam: "[+] Camera data saving...\n[+] Exported to /loot/creds/target-45.json",
+      save_mic: "[+] Microphone data saving...\n[+] Exported to /loot/creds/target-45.json",
+
+      // Credentials, MFA, Passwords 
+      cred_steal: "[+] Harvesting credentials...\n[+] Exported to /loot/creds/target-45.json",
+      mfa_steal: "[+] MFA token capture in progress...\n[+] QR snapshot saved.\n[+] Exported to /loot/creds/target-45.json",
+      browser_steal: "[+] Harvesting browser stored credentials...\n[+] Exported to /loot/creds/target-45.json",
+
+      // File system
+      files: "[+] Directory listing:\n- /docs/\n- /images/\n- /downloads/",
+      save: "[+] Uploading loot to central storage...\n[+] Operation complete",
+      store: "[+] External Data Store set...\n[+] https://137.42.10.22:8181 --autossh"
+    };
+
+    const terminalCmd = document.getElementById('terminal-cmd');
+    const terminalOutput = document.getElementById('terminal-output');
+
+    // Process input commands
+    terminalCmd.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const input = this.value.trim();
+        const baseCmd = input.split(' ')[0];
+        const arg = input.slice(baseCmd.length + 1);
+        this.value = '';
+
+        // Print input
+        terminalOutput.innerHTML += input + '\n';
+
+        if (baseCmd === 'clear') {
+          terminalOutput.innerHTML = '> ';
+        } else if (baseCmd === 'help') {
+          terminalOutput.innerHTML += getHelpText() + '\n> ';
+        } else if (baseCmd === 'used') {
+          terminalOutput.innerHTML += `[+] Currently engaged end: ${endUsed}\n> `;
+        } else if (baseCmd === 'inject' && arg) {
+          terminalOutput.innerHTML += `[+] Injecting \"${arg}\" to target...\n[+] Injection successful\n> `;
+        } else if (commandResponses[baseCmd] !== undefined) {
+          terminalOutput.innerHTML += (commandResponses[baseCmd] || '') + '\n> ';
+        } else {
+          terminalOutput.innerHTML += `[-] Unknown command: ${input}\n> `;
+        }
+
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+    });
+
+
+    document.addEventListener('keydown', function(e) {
+        function isAltGr() {
+    return e.getModifierState('AltGraph') || 
+          (e.code === 'AltRight' && e.ctrlKey && !e.shiftKey && !e.metaKey);
+  }
+
+  // AltGr+number combinations (replacement for Space+number)
+  // ALTGR -- Payload related
+  if (isAltGr()) {
+    switch (e.code) {
+      case 'Digit1':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[!] Payload Deployed\n[+] AG1 = Active\n> ";
+        break;
+      case 'Digit2':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[!] Payload Active\n[+] AG2 = Active\n> ";
+        break;
+      case 'Digit3':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[!] Payload Wiped\n[+] AG3 = Active\n> ";
+        break;
+    }
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    return;
+  }
+
+  // Check for other modifier combinations
+  // ALT + CTRL -- Set the Device 'mode' (plugged into computer/mobile/acting as a link between compuer and mobile)
+  if (e.altKey && e.ctrlKey && !e.shiftKey) {
+    switch (e.code) {
+      case 'Digit1':
+        e.preventDefault();
+        endUsed = 'COM';
+        terminalOutput.innerHTML += "\n[+] Device set for Computer interface\n[+] C+A1 = COM\n> ";
+        break;
+      case 'Digit2':
+        e.preventDefault();
+        endUsed = 'MOB';
+        terminalOutput.innerHTML += "\n[+] Device set for Mobile interface\n[+] C+A2 = MOB\n ";
+        break;
+      case 'Digit3':
+        e.preventDefault();
+        endUsed = 'BOTH';
+        terminalOutput.innerHTML += "\n[+] Device set for Bridge interface\n[+] C+A3 = BOTH - MITM\n> ";
+        break;
+    }
+  }
+  //SHIFT -- Beacon Related
+  else if (e.shiftKey && !e.ctrlKey && !e.altKey) {
+    switch (e.code) {
+      case 'Digit1':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Beacon deployed\n[+] Software implant uploaded\n> ";
+        break;
+      case 'Digit2':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Beacon deployed\n[+] Internal hardware implant active\n> ";
+        break;
+      case 'Digit3':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[!] Beacon detected!\n[+] Beacon traffic detected within the network\n> ";
+        break;
+    }
+  }
+  //CTRL -- Keylogger related
+  else if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+    switch (e.code) {
+      case 'Digit1':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Keylogger deployed...\n[+] Keylogger: Active\n> ";
+        break;
+      case 'Digit2':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Keylogger deployed...\n[+] Keylogger: Inactive\n> ";
+        break;
+      case 'Digit3':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Keylogger deployed...\n[+] Data upload to External Storage\n> ";
+        break;
+    }
+  }
+  //ALT -- Data Dump To Screen
+  else if (e.altKey && !e.shiftKey && !e.ctrlKey) {
+    switch (e.code) {
+      case 'Digit1':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Camera data uploaded to external data storage...\n[+] A1 Online \n> ";
+        break;
+      case 'Digit2':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Microphone data uploaded to external data storage...\n[+] A2 Online \n> ";
+        break;
+      case 'Digit3':
+        e.preventDefault();
+        terminalOutput.innerHTML += "\n[+] Data stream uploaded to external data storage...\n[+] A3 Online\n> ";
+        break;
+    }
+  }
+
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+});
+
+    // Help menu generator
+    function getHelpText() {
+      return `Available commands:
+BASIC SESSION CONTROLS
+activate      - Enable implant
+pause         - Pause connection
+stealth       - Enter stealth mode
+deactivate    - Disconnect session
+destro        - Erase memory permanently
+clear         - Clear terminal
+
+CONNECTIVITY AND SCANNING
+conns         - List local connections across WiFi, BlueTooth, and NFC
+scan          - Scan Local Area Network (Computer)
+wifi          - View currently connected SSID, and nearby WiFi networks
+blue	      - View nearby BlueTooth connections and credential offering
+nfc	          - View nearby NFC connections and credential offering
+connect       - Attempt handshake to device or protocol, and availability of credential
+
+DEVICE INTERACTIONS
+engage_com    - Activate computer channel
+engage_mob    - Activate mobile channel
+engage_mitm    - Enable MITM mode
+used          - Show currently engaged end of device (COM/MOB/BOTH)
+dev_wifi      - Show current device broadcast SSID and status
+dev_blue      - Show current device broadcast ID and status
+dev_nfc       - Show current device NFC broadcast ID and status
+data_load     - Load data from external data store
+data_save     - Save data to external data store
+
+COMPUTER ONLY
+Show Beacon   - Show currently uploaded beacons in memory and relevent settings
+Deploy Beacon - Deploy listed beacon
+
+MOBILE ONLY
+clone         - Clone SIM card data, copy to external data storage
+cp_text       - Copy messages and texts, upload to external data storage
+cp_addr       - Copy address book and contacts, upload to external data storage
+cell_ping     - Ping associated Cell to obtain identifier
+tower_ping    - Ping associated Tower, return acknowledgement contains tower identifier
+
+MITM ONLY
+sniff         - Begin sniffing network traffic, data upload to external storage, relevent data displayed on screen
+
+PAYLOADS
+payload_mem   - List loaded payloads
+payload       - Deploy payload
+
+DATA TRANSFER AND INJECTION
+upload        - Send file to target
+download      - Retrieve file from target
+inject [txt]  - Inject keystrokes
+key_on        - Activate keylogger
+key_off       - Deactivate keylogger
+cred_steal    - Collect credentials and upload to external store
+mfa_steal     - Steal MFA QR snapshot and upload to external store
+browser_steal - Browser scrape of stored credentials and upload to external store
+
+FILES
+files         - List file structure
+save	      - Save data to external store/cloud 
+store	      - Show external store setting
+
+AUDIO/VISUAL 
+cam           - Access camera
+mic           - Activate mic
+save_cam      - Upload data to cloud
+save_mic      - Upload data to cloud
+
+
+COMING SOON
+set_wifi      - Set wifi status and name
+set_blue      - Set bluetooth status and name
+set_nfc       - Set nfc status and name
+vsim_import   - Import cloned SIM data to virtual SIM / virtual device
+vsim (opts)   - Use vsim to undertake actions via the associated device
+
+`
+    }
+  </script>
+</body>
+</html>

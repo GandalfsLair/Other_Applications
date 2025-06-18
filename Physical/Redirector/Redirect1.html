@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirector Interface</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            line-height: 1.4;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            /*overflow: hidden; /*Optional: Prevent body itself from scrolling*/
+        }
+        
+        #terminal {
+            max-width: 100%;
+            margin: 0 auto;
+            border: 1px solid #333;
+            padding: 20px;
+            height: 100%;
+            overflow-y: auto;
+            box-sizing: border-box; /* Important: Include padding/border in height calculation */
+        }
+        
+        #input-line {
+            display: flex;
+        }
+        
+        #prompt {
+            margin-right: 20px;
+        }
+        
+        #command-input {
+            background-color: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            width: 100%;
+            outline: none;
+        }
+        
+        .output {
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .login-form {
+            margin-top: 10px;
+        }
+        
+        .login-input {
+            background-color: transparent;
+            border: none;
+            border-bottom: 1px solid #0f0;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 10px;
+            outline: none;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal">
+        <div id="output"></div>
+        <div id="login-screen">
+            <div class="output"></div>
+            <div class="login-form">
+                <div class="output" id="hostname-prompt">login: </div>
+                <input type="text" id="username-input" class="login-input" autofocus>
+                <div class="output hidden" id="password-prompt">Password: </div>
+                <input type="password" id="password-input" class="login-input hidden">
+            </div>
+        </div>
+        <div id="command-line" class="hidden">
+            <div id="input-line">
+                <span id="prompt"></span>
+                <input type="text" id="command-input">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - customize these values
+        const config = {
+            hostname: "red-host-01",
+            IP_Addr: "192.168.10.1",
+            MAC_Addr: "00-1B-63-84-45-E6",
+            Target_IP: "",
+            Target_MAC: "",
+            Source_IP: "",
+            Source_MAC: "",
+            Proxy: "true",
+            validCredentials: [
+                { username: "admin", password: "r3d1r3ct", accessLevel: "full" },
+                { username: "user", password: "password123", accessLevel: "limited" }
+            ],
+            banner: "REDirector HOST Interface  v1.0",
+            commands: {
+
+                "help": "show this help message",
+                "sysinfo": "show system information",
+                "netstat": "show network connections",
+                "ps": "list running processes",
+                "edit": "edit options and variables - see below",
+                " hostname": "change device hostname - <new-hostname>",
+                " ip_addr ": "change device ip address - <new-ip-address>",
+		        " mac_addr": "change device mac address - <new-mac-address>",
+		        " targ_ip": "change target ip address - <new-ip-address>",
+		        " targ_mac": "change target mac address - <new-mac-address>",
+		        " sour_ip": "change source ip address - <new-ip-address>",
+		        " sour_mac": "change source mac address - <new-mac-address>",
+		        " prox": "change proxy status - <true/false>",
+		        " kernal": "change kernal data - <new-data>",
+		        " uptime": "change uptime data - <new-data>",
+		        " loadavg": "change load data - <new-data>",
+		        " users": "change number of users - <new-data>",
+		        " memory": "change memory data - <new-data>",
+		        " networdConnections": "edit network connections * - <new-data>",
+		        " processes": "edit running processes * - <new-data>",
+                
+                "clear": "Clear the terminal window",
+
+                "exit": "end session",
+
+		        " * ": "[cut/paste original and change, add 'Forward_Slash-n' for new lines]"
+            }
+        };
+
+        // DOM elements
+        const outputEl = document.getElementById('output');
+        const usernameInput = document.getElementById('username-input');
+        const passwordInput = document.getElementById('password-input');
+        const passwordPrompt = document.getElementById('password-prompt');
+        const hostnamePrompt = document.getElementById('hostname-prompt');
+        const commandLine = document.getElementById('command-line');
+        const commandInput = document.getElementById('command-input');
+        const prompt = document.getElementById('prompt');
+        const loginScreen = document.getElementById('login-screen');
+
+        const terminalEl = document.getElementById('terminal'); // Add this near other getElementById calls
+
+        const dynamicData = {
+hostname: config.hostname,
+ip_addr: config.IP_Addr,
+mac_addr: config.MAC_Addr,
+targ_ip: config.Target_IP,
+targ_mac: config.Target_MAC,
+sour_ip: config.Source_IP,
+sour_mac: config.Source_MAC,
+prox: config.Proxy,
+kernel: "5.4.0-88-generic x86_64",
+uptime: "12 days, 4 hours, 32 minutes",
+loadAvg: "0.12, 0.15, 0.18",
+users: "1",
+memory: "3.2GB / 7.7GB (41.5% used)",
+networkConnections: `
+Active Internet connections:
+Proto   Recv-Q  Send-Q  Local Address       Foreign Address     State
+tcp     0       0       LOCALHOST:*         137.42.10.1:54321   ESTABLISHED
+tcp     0       0       0.0.0.0:443         0.0.0.0:*           LISTEN
+tcp6    0       0       192.168.10.1:80     0.0.0.0:*           LISTEN
+tcp6    0       0       :::80               :::*                LISTEN
+
+Active domain sockets:
+Proto      RefCnt   Flags    Type     State        Path
+unix       2        [ ACC ]  STREAM   LISTENING    /var/run/docker.sock
+windows    3        [ ACC ]  STREAM   LISTENING    /var/run/docker.sock
+                `,
+processes: `
+PID   TTY    TIME      CMD
+1234  pts/0  00:00:00  bash
+1257  pts/0  00:00:00  sshd
+1268  pts/0  00:00:00  python3
+1289  pts/0  00:00:00  netcat
+1302  pts/0  00:00:00  ps
+    `
+    };
+
+        // State
+        let authenticated = false;
+        let currentUser = null;
+
+        // Initialize
+        function init() {
+            writeOutput(config.banner);
+            
+            usernameInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleUsernameInput();
+                }
+            });
+            
+            passwordInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handlePasswordInput();
+                }
+            });
+            
+            commandInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleCommand();
+                }
+            });
+        }
+
+
+        // Output functions
+        function writeOutput(text) {
+    const div = document.createElement('div');
+    div.className = 'output';
+    div.textContent = text;
+    outputEl.appendChild(div);
+    div.scrollIntoView();
+}
+        
+
+        // Login handlers
+        function handleUsernameInput() {
+            currentUser = usernameInput.value.trim();
+            usernameInput.classList.add('hidden');
+            passwordPrompt.classList.remove('hidden');
+            passwordInput.classList.remove('hidden');
+            passwordInput.focus();
+            hostnamePrompt.textContent = `${config.hostname} login: ${currentUser}`;
+        }
+
+        function handlePasswordInput() {
+            const password = passwordInput.value;
+            
+            // Check credentials
+            const validUser = config.validCredentials.find(cred => 
+                cred.username === currentUser && cred.password === password
+            );
+            
+            if (validUser) {
+                authenticated = true;
+                writeOutput(`\nWelcome to Ubuntu 20.04.3 LTS (GNU/Linux 5.4.0-88-generic x86_64)`);
+                loginScreen.classList.add('hidden');
+                commandLine.classList.remove('hidden');
+                commandInput.focus();
+                prompt.textContent = `${validUser.username}@${config.hostname}# `;
+                writeOutput("Type 'help' for available commands");
+            } else {
+                writeOutput("\nLogin incorrect");
+                resetLogin();
+            }
+        }
+
+        function resetLogin() {
+            usernameInput.value = '';
+            passwordInput.value = '';
+            usernameInput.classList.remove('hidden');
+            passwordPrompt.classList.add('hidden');
+            passwordInput.classList.add('hidden');
+            usernameInput.focus();
+            hostnamePrompt.textContent = `${config.hostname} login: `;
+        }
+
+        // Command handlers
+        function handleCommand() {
+    const command = commandInput.value.trim();
+    writeOutput(`${prompt.textContent}${command}`);
+    commandInput.value = '';
+
+    const commandParts = command.split(" "); // Split the command into an array
+    const cmd = commandParts[0];
+
+    switch(cmd) {
+        case 'help':
+            showHelp();
+            break;
+        case 'sysinfo':
+            showSystemInfo();
+            break;
+        case 'netstat':
+            showNetworkStats();
+            break;
+        case 'ps':
+            showProcesses();
+            break;
+        case 'exit':
+            endSession();
+            break;
+        case 'edit':
+            handleEdit(commandParts); // Pass the array to handleEdit
+            break;
+        case 'clear':
+            handleClear();
+            break;
+        default:
+            writeOutput(`-bash: ${cmd}: command not found`);
+    }
+}
+
+        function showHelp() {
+            let helpText = "Available commands:\n";
+            for (const [cmd, desc] of Object.entries(config.commands)) {
+                helpText += `  ${cmd.padEnd(10)} ${desc}\n`;
+            }
+            writeOutput(helpText);
+        }
+
+        function showSystemInfo() {
+            const info = `
+System information:
+  Hostname: ${config.hostname}
+  IP address: ${config.ip_addr}
+  MAC address: ${config.mac_addr}
+  Target IP: ${config.targ_ip}
+  Target MAC: ${config.targ_mac}
+  Source IP: ${config.sour_ip}
+  Source MAC: ${config.sour_mac}
+  Proxy?: ${config.prox}
+  Kernel: 5.4.0-88-generic x86_64
+  Uptime: 12 days, 4 hours, 32 minutes
+  Load average: 0.12, 0.15, 0.18
+  Users logged in: 1
+  Memory: 3.2GB / 7.7GB (41.5% used)
+            `;
+            writeOutput(info);
+        }
+
+function showSystemInfo() {
+    const info = `
+    System information:
+    Hostname: ${dynamicData.hostname}
+    IP address: ${dynamicData.ip_addr}
+    MAC address: ${dynamicData.mac_addr}
+    Target IP: ${dynamicData.targ_ip}
+    Target MAC: ${dynamicData.targ_mac}
+    Source IP: ${dynamicData.sour_ip}
+    Source MAC: ${dynamicData.sour_mac}
+    Proxy?: ${dynamicData.prox}
+    Kernel: ${dynamicData.kernel}
+    Uptime: ${dynamicData.uptime}
+    Load average: ${dynamicData.loadAvg}
+    Users logged in: ${dynamicData.users}
+    Memory: ${dynamicData.memory}
+                `;
+        writeOutput(info);
+        }
+
+function showNetworkStats() {
+        writeOutput(dynamicData.networkConnections);
+        }
+
+function handleEdit(commandParts) {
+    if (commandParts.length < 3) {
+        writeOutput("Usage: edit <variable> <value>");
+        return;
+    }
+
+    const variable = commandParts[1];
+    let newValue = commandParts.slice(2).join(" "); // Allows for multi word values
+
+    if (dynamicData.hasOwnProperty(variable)) {
+        // Replace literal '\n' with actual newline characters
+        newValue = newValue.replace(/\\n/g, '\n');
+        dynamicData[variable] = newValue;
+        writeOutput(`Variable '${variable}' updated to '${newValue}'`);
+    } else {
+        writeOutput(`Variable '${variable}' not found.`);
+    }
+}
+function handleClear() {
+    outputEl.innerHTML = ''; // Clear the output div
+}
+
+function showProcesses() {
+        writeOutput(dynamicData.processes);
+        }
+
+        function endSession() {
+            writeOutput("Session terminated.");
+            commandLine.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            resetLogin();
+        }
+
+        // Start the simulator
+        init();
+    </script>
+</body>
+</html>
