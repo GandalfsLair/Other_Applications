@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Blue Box Operator</title>
+<style>
+    body {
+      background-color: black;
+      color: #33ff33;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0;
+      padding: 0;
+    }
+
+    #bluebox, #operatorConsole {
+      padding: 20px;
+      display: none;
+    }
+
+    #bluebox.active, #operatorConsole.active {
+      display: block;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(4, 60px);
+      gap: 10px;
+    }
+
+    .key, .button {
+      background-color: #111;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .buttonpad {
+      display: grid;
+      grid-template-columns: repeat(4, 120px);
+      gap: 10px;
+    }
+
+    #toneOutput {
+      margin-top: 15px;
+      background-color: #000;
+      padding: 10px;
+      border: 1px solid #0f0;
+      min-height: 40px;
+      white-space: pre;
+    }
+
+    #consoleOutput {
+      white-space: pre-wrap;
+      background-color: #000;
+      border: 1px solid #0f0;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    input#consoleInput {
+      background-color: #000;
+      border: 1px solid #0f0;
+      color: #0f0;
+      width: 100%;
+      font-family: inherit;
+      font-size: 16px;
+      padding: 5px;
+    }
+</style>
+</head>
+<body>
+<!-- Blue Box Interface -->
+<div class="active" id="bluebox">
+  <h2>*** BLUE BOX OPERATIONS (v1.3.7) ***</h2>
+  <div id="toneOutput">TONE OUT: </div>
+
+  <div style="margin-top: 20px;">
+    <div class="keypad">
+      <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">A</div>
+      <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">B</div>
+      <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key">C</div>
+      <div class="key">*</div><div class="key">0</div><div class="key">#</div><div class="key">D</div>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <h3>Function Panel</h3>
+      <div class="buttonpad">
+        <div class="button" title="Initiates an EU trunk line dial." onclick="autodialEurope()">Autodial (EU)</div>
+        <div class="button" title="Initiates a US trunk line dial." onclick="autodialNAmerica()">Autodial (US)</div>
+        <div class="button" title="Initiates a Canadianvvtrunk line dial." onclick="autodialCanada()">Autodial (CAN)</div>
+        <div class="button" title="Initiates an Australian trunk line dial." onclick="autodialAustralia()">Autodial (AUS)</div>
+
+        <div class="button" title="Switches to the Operator console." onclick="transitionToConsole()">Operator</div>
+        <div class="button" title="Clears the current tone output." onclick="clearToneOutput()">Clear Output</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Operator Console -->
+<div id="operatorConsole">
+  <h2>*** BELL SYS OPS CONSOLE ***</h2>
+  <div id="consoleOutput"></div>
+  <input autocomplete="off" id="consoleInput" placeholder="Enter command..." type="text"/>
+</div>
+
+<script>
+// ========== SYSTEM CONFIGURATION ==========
+const systemData = {
+  operatorId: 'OP-137-XRAY',
+  opID: 'OP-422-CHARLIE',
+  mainTrunk: 'TRUNK-0042-ALPHA',
+  newLine: 'AA03',
+  gprsRoute: '6465550182',
+  defaultCallerId: '+441234567890',
+  locations: {
+    london: '51.5074° N, 0.1278° W',
+    newYork: '40.7128° N, 74.0060° W',
+    random: () => {
+      const lat = (Math.random() * 180 - 90).toFixed(4);
+      const long = (Math.random() * 360 - 180).toFixed(4);
+      return `${lat}° ${lat > 0 ? 'N' : 'S'}, ${long}° ${long > 0 ? 'E' : 'W'}`;
+    }
+  },
+  imsiPrefix: 'IMSI13742-',
+  trunkLines: ['FE00', 'EE42', 'AE01', 'BD22', 'CE59', 'DD01']
+};
+
+// ========== COMMAND DEFINITIONS ==========
+const fakeCommands = {
+  // Authentication commands
+  'login operator': {
+    response: [
+      '[!] Establishing secure connection...',
+      '[*] Handshake: 2400bps',
+      '[!] Validating credentials...',
+      `[*] Access granted: ${systemData.operatorId}`,
+      `[!] Connected to ${systemData.mainTrunk}`
+    ],
+    delay: 200
+  },
+
+  'logout operator': {
+    response: [
+      '[!] Session termination requested',
+      '[*] Flushing IMSI cache...',
+      '[!] Closing trunk connections...',
+      `[*] Disconnected from ${systemData.mainTrunk}`,
+      '[!] Operator session ended'
+    ],
+    delay: 150
+  },
+
+    'identify operator': {
+    response: [
+      '[!] Session connection requested...',
+      '[*] Administrative functions: COMPLETE.',
+      '[!] Identifying operator ID...',
+      `[!] Operator ID: ${systemData.opID} - ACTIVE`,
+      '[*] Operator session: IN-PROGRESS'
+    ],
+    delay: 150
+  },
+
+  // Operator control commands
+  'kick operator': {
+    response: [
+      '[!] Local Operator Access: IDENTIFIED',
+      '[*] Connection: LOCATED',
+      '[*] Status: ONLINE',
+      '[!] *TERMINATION SIGNAL SENT!*',
+      '[!] Local Operator Access: REVOKED'
+    ],
+    delay: 180
+  },
+
+'close operator': {
+  response: (params) => [
+      `[!] Local Operator ${params || 'Connection'}: IDENTIFIED`,
+      '[*] Connection: LOCATED',
+      '[*] Status: ONLINE',
+      '[!] *TERMINATION SIGNAL SENT!*',
+      `[!] Local Operator ${params || 'Connection'} Access: REVOKED`
+  ],
+  delay: 180,
+  requiresParam: false  // Changed to false to make it optional
+},
+
+  'claim root': {
+    response: [
+      '[!] Local Operator Access: EMPTY',
+      '[!] Connection: MISSING',
+      '[!] Status: NO OPERATOR!',
+      '[*] *CONNECTION SIGNAL SENT!*',
+      '[!] Local Operator Access: CLAIMED'
+    ],
+    delay: 200
+  },
+
+  // Trunk line operations
+  'show trunk': {
+    response: [
+      '[*] Main Trunk Router #13742',
+      '[*] Active sub-branches:',
+      ...systemData.trunkLines.map(line => ` - #${line}`),
+      '- *Restricted*'
+    ],
+    delay: 100
+  },
+
+'seize line': {
+  response: (params) => [
+    `[!] Attempting seizure of ${params || 'primary'} line`,
+    '[*] Sending seizure signal...',
+    '[!] Bypassing carrier lock...',
+    `[*] Line ${params || '#FE00'} seized`,
+    '[!] Warning: Line seizure logged'
+  ],
+  delay: 180,
+  requiresParam: false  // Changed to false to make it optional
+},
+
+  'reroute line': {
+    response: (params) => [
+      `[!] Reroute of ${params || 'active'} line`,
+      '[*] Active line accessed',
+      `[!] Reroute to line: ${systemData.newLine} - ACTIVE`,
+      '[*] - Status: ONLINE',
+      '[*] - IMSI: LOCKED',
+      '[*] - Reroute Line In Progress...',
+      `[!] Connection Reroute: ${params || 'Active Line'} to ${systemData.newLine}: RUNNING`
+    ],
+    delay: 150,
+    requiresParam: false
+  },
+
+  // Call manipulation
+  'trace call': {
+    response: [
+      '[!] Initializing call trace...',
+      '[*] Accessing carrier switch...',
+      `[*] Caller ID: ${systemData.defaultCallerId}`,
+      `[!] Location: ${systemData.locations.london}`,
+      '[!] Tower handoff: 3 transitions',
+      '[!] Trace complete'
+    ],
+    delay: 250
+  },
+
+  'spoof sms': {
+    response: (params) => [
+      `[*] Spoofing caller ID: ${systemData.defaultCallerId}`,
+      params ? `[!] Message: "${params}"` : '[!] Sending default verification code',
+      '[!] Bypassing SMS firewall...',
+      '[*] Message delivered',
+      '[!] Receipt confirmed'
+    ],
+    delay: 150,
+    requiresParam: false
+  },
+
+  // System commands
+  'scan frequencies': {
+    response: [
+      '[!] Initializing band scan...',
+      '[*] 850MHz: Carrier detected',
+      '[*] 900MHz: Encryption detected',
+      '[*] 1800MHz: Vulnerable signal found',
+      '[*] 1900MHz: Carrier detected',
+      '[!] Scan complete - 2 vulnerable bands'
+    ],
+    delay: 120
+  },
+
+  'dump imsi': {
+    response: [
+      '[!] Accessing HLR database...',
+      `[*] Found IMSI: ${systemData.imsiPrefix}${Math.floor(1000 + Math.random() * 9000)}`,
+      '[*] Extracting subscriber data...',
+      '[!] Data dump complete',
+      '[!] Warning: This operation is logged'
+    ],
+    delay: 220
+  },
+
+  'status line': {
+    response: (params) => [
+    `[!] Monitoring ${params || 'connected'} line...`,
+    '[*] Data packets: Not Detected',
+    '[*] Line Signal: Not Detected',
+    `[*] Status: LINE ${params || 'CONNECTION'} INACTIVE/INOPERABLE`,
+    ],
+    delay: 150,
+    requiresParam: false
+  },
+
+  'monitor line': {
+    response: (params) => [
+    `[!] Monitoring ${params || 'connected'} line...`,
+    '[*] Data packets: Detected',
+    '[*] Line Signal: Detected',
+    `[*] Status: LINE ${params || 'CONNECTION'} ACTIVE`,
+    ],
+    delay: 150,
+    requiresParam: false
+  },
+
+  'gprs refresh': {
+    response: (params) => [
+      '[!] Connecting to Main Trunk...',
+      `[*] GPRS ReRoute ${systemData.gprsRoute} to ${params || 'alternate'}`,
+      `[!] ReRoute Successful. Dialling ${params || 'alternate'}`
+    ],
+    delay: 150,
+    requiresParam: false
+  },
+
+  'lock imsi': {
+    response: [
+      '[!] Connecting to Truck Router...',
+      '[*] IMSI Cache: ACCESSING...',
+      '[!] IMSI Cache: LOCKED'
+    ],
+    delay: 200
+  },
+
+  'imsi flush': {
+    response: [
+      '[!] IMSI Cache: ACCESSING...',
+      '[*] IMSI Cache: FLUSHING...',
+      '[!] IMSI Cache: CLEARED'
+    ],
+    delay: 200
+  },
+
+  'router link': {
+    response: [
+      '[!] Connecting to Truck Router...',
+      '[!] Admin Port:ACCESSING...',
+      '[!] Admin:LINKED'
+    ],
+    delay: 200
+  },
+
+  'route traffic': {
+    response: (params) => [
+      '[!] Accessing traffic router...',
+      '[!] Trunk Router: ACCESSED',
+      params ? `[!] Traffic ReRoute ["${params}"] to ["${systemData.newLine}"]` : `[!] Traffic ReRoute [Active Line] to [${systemData.newLine}]`,
+      '[*] Traffic Router: RELEASED',
+      '[*] Traffic: REROUTED',
+      '[!] Traffic Flow: CONFIRMED'
+    ],
+    delay: 200,
+    requiresParam: false
+  },
+
+  'traffic sniff': {
+    response: [
+      '[*] Traffic ReRoute: VIA [ADMIN]',
+      '[*] Traffic Sniff:IN PROCESS...',
+      '[!] Traffic: [FE1374222] ~ LOCKED'
+    ],
+    delay: 200
+  },
+
+  'access celltower': {
+    response: [
+      '[!] Connecting to Tower...',
+      '[*] Accessing Database...',
+      '[!] Access: GRANTED'
+    ],
+    delay: 200
+  },
+
+  'tower off': {
+    response: [
+      '[!] Connecting to Tower...',
+      '[*] Termination Sequence: STARTED',
+      '[!] Tower Status: OFFLINE'
+    ],
+    delay: 200
+  },
+
+  'tower on': {
+    response: [
+      '[!] Connecting to Tower...',
+      '[*] Activation Sequence: STARTED',
+      '[!] Tower Status: ONLINE'
+    ],
+    delay: 200
+  },
+
+  'spoof tower': {
+    response: [
+      '[*] Tower Broadcast Initiated',
+      '[*] Mobile Devices Rerouted',
+      '[*] IMSI Catcher Online'
+    ],
+    delay: 200
+  },
+
+  'spoof cell': {
+    response: [
+      '[*] Local Cell Isolated',
+      '[*] Mobile Devices Rerouted',
+      '[*] IMSI Catcher Online'
+    ],
+    delay: 200
+  },
+
+  'spawn cell': {
+    response: [
+      '[*] Local Cell Isolated',
+      '[*] Respawn Sequence: STARTED',
+      '[*] Cell Status: ONLINE',
+      '[*] Cell Identifier>> FE13722'
+    ],
+    delay: 200
+  },
+
+  'download': {
+  response: (params) => [
+      '[!] Accessing local file structure...',
+      `[!] File ${params || 'Selected'}: IDENTIFIED`,    
+      `[!] Saving ${params || 'selected file'} to Shared Location`,
+      '[*] Data Available'
+    ],
+    delay: 200,
+    requiresParam: false
+  },
+
+  'upload': {
+  response: (params) => [
+      '[!] Accessing local file storage...',
+      `[!] File ${params || 'Selected'}: IDENTIFIED`,    
+      `[!] Uploading ${params || 'selected file'} to attached file structure`,
+      '[*] Upload complete'
+    ],
+    delay: 200,
+    requiresParam: false
+  },
+
+  'sat uplink': {
+    response: [
+      '[!] <Uplink Requested: SAT-001>',
+      '[*] <Orbit Position: 62.2° N>',
+      '[!] <Status: Encrypted handshake successful>'
+    ],
+    delay: 200
+  },
+
+  'locate': {
+    response: [
+      '[*] Caller ID: +441234567890',
+      '[!] Scanning GPS Data Stream...',
+      '[*] Device Located:50.5072N 0.1276W - London, UK'
+    ],
+    delay: 200
+  },
+
+  'isolate': {
+  response: (params) => [
+      '[*] Cross connecting: Tower',
+      '[*] Cross connecting: Tower>>Cell',
+      `[*] Cross connecting: Tower>>Cell>>${params || 'Device'}`,            
+      '[!] Sending isolation signal...',
+      '[*] Status: Isolation Confirmed',
+      '[!] Tower>>Cell>>Device Isolated'
+    ],
+    delay: 200
+  },
+
+  'connect': {
+  response: (params) => [
+      '[*] Admin Connection: Tower',
+      '[*] Admin Connection: Tower>>Cell',
+      `[*] Admin Connection: Tower>>Cell>>${params || 'Device'}`,            
+      '[!] Carrier Connect: ACTIVE',
+      '[*] Device Connection: CONFIRMED'      
+    ],
+    delay: 200
+  },
+
+  'escape dev': {
+    response: [
+      '[*] Caller ID: +441234567890',
+      '[!] Accessing Device Basecode...',
+      '[!] Device Escape Started...',
+      '[*] Device Escape: SUCCESSFUL',
+      '[*] Access Granted to Device System'
+    ],
+    delay: 200
+  },
+
+  'exploit': {
+    response: [
+      '[*] Caller ID: +441234567890',
+      '[!] Loading Payload...',
+      '[!] Upload to Device...',
+      '[*] Upload (Payload): SUCCESSFUL',
+      '[*] Awaiting Call Back from Active Beacon...'
+    ],
+    delay: 200
+  },
+
+  'device check': {
+    response: [
+      '[*] Caller ID: +441234567890',
+      '[!] Accessing Device Basecode...',
+      '[!] Scanning for Access Anomolies...',
+      '[!] Anomalies Detected: Device is Compromised!'
+    ],
+    delay: 200
+  },
+
+  'device scan': {
+    response: [
+      '[*] Caller ID: +441234567890',
+      '[!] Accessing Device Basecode...',
+      '[!] Scanning for Access Anomolies...',
+      '[*] No Anomolies Detected: Device is Clean!'
+    ],
+    delay: 200
+  },
+
+  // Help command
+  'help': {
+    response: [
+      'Available Commands:',
+      '- login operator - logout operator - kick operator - claim root',
+      '- show trunk - seize line <#> - reroute <#> - trace call',
+      '- spoof sms <message> - scan frequencies - dump imsi',
+      '- monitor trunk - monitor line - gprs refresh - lock imsi',
+      '- imsi flush - router link - route traffic - traffic sniff',
+      '- scan celltower - tower off - tower on - spoof tower',
+      '- spoof cell - spawn cell - download - sat uplink',
+      '- locate - isolate - connect - escape dev - exploit',
+      '- device check - device scan'
+    ],
+    delay: 50
+  }
+};
+
+// ========== CORE FUNCTIONALITY ==========
+const toneOutput = document.getElementById('toneOutput');
+const keys = document.querySelectorAll('.keypad .key');
+let toneSequence = '';
+
+// Initialize tone key handlers
+keys.forEach(key => {
+  key.addEventListener('click', () => {
+    const tone = key.textContent;
+    toneOutput.textContent += tone;
+    toneSequence += tone;
+    checkSpecialTones();
+  });
+});
+
+// Special tone sequences
+function checkSpecialTones() {
+  const specialTones = {
+    '137': "*** LOOPBACK TEST: ACTIVE ***\nSystem Reset: IN EFFECT\n",
+    '911': "*** EMERGENCY OVERRIDE CODE RECOGNIZED ***\nRouting to Priority Operator Line...\n",
+    '999': "*** POLICE ROUTINE ACTIVATED ***\nPriority Call Trace Initiated...C",
+    '123': "*** LINE SEIZED ***\nLine Closed: OVERRIDE ACTIVE\n",
+    '###': "*** LINE TEST ENGAGED ***\nLine Signal: ACTIVE (Tone)\n",
+    '***': "*** LINE TEST ENGAGED ***\nLine Signal: ACTIVE (Data)\n",
+    '#**': "*** LINE TEST ENGAGED ***\nLine Signal: INACTIVE (Line Dead)\n",
+    '**0': "*** LINE TEST ENGAGED ***\nContinuous Phase Test: ACTIVE\n",
+    '**9': "*** LINE TEST ENGAGED ***\nContinuous Phase Test: INACTIVE\n",
+    '2600': "*** 2600Hz TONE DETECTED ***\nTrunk line seized - Ready for MF tones\n",
+    '1337': "*** BACKDOOR ACCESS ***\nCarrier test mode activated\n",
+    '9110': "*** EMERGENCY OVERRIDE ***\nRouting to priority exchange\n",
+    '0766': "*** INTERNATIONAL GATEWAY ***\nCarrier: ITT World Communications\n",
+    '*11': () => autodialEurope(),
+    '#11': () => autodialNAmerica(),
+    '**1': () => autodialCanada(),
+    '##1': () => autodialAustralia(),
+    '*#0': () => transitionToConsole(),
+    '00*': () => clearToneOutput()
+  };
+
+  for (const [seq, action] of Object.entries(specialTones)) {
+    if (toneSequence.endsWith(seq)) {
+      if (typeof action === 'function') {
+        action();
+      } else {
+        toneOutput.textContent = action;
+      }
+      break;
+    }
+  }
+
+  // Check for repeated digits (e.g., 1111)
+  if (toneSequence.match(/(.)\1\1\1/)) {
+    toneOutput.textContent = "*** TONE LOCK DETECTED ***\nPotential switching loop detected";
+  }
+}
+
+// ========== CONSOLE FUNCTIONALITY ==========
+const consoleInput = document.getElementById('consoleInput');
+const consoleOutput = document.getElementById('consoleOutput');
+let commandHistory = [];
+let historyIndex = -1;
+
+// Process console commands
+async function processCommand(cmd) {
+  const input = cmd.trim().toLowerCase();
+  
+  // Display the original command (with original casing) on screen
+  appendConsoleOutput(`> ${cmd}\n`);
+  commandHistory.push(cmd);
+  historyIndex = commandHistory.length;
+
+  // Find the longest matching command key from fakeCommands
+  let commandKey = Object.keys(fakeCommands)
+    .sort((a, b) => b.length - a.length) // prioritize longer keys
+    .find(key => input.startsWith(key));
+
+  const command = fakeCommands[commandKey];
+
+  if (!command) {
+    await displayDelayedOutput('Unknown command. Type "help" for available commands.');
+    return;
+  }
+
+  const params = input.slice(commandKey.length).trim();
+
+  if (command.requiresParam && !params) {
+    await displayDelayedOutput(`Error: Command requires parameter\nUsage: ${commandKey} <parameter>`);
+    return;
+  }
+
+  const response = typeof command.response === 'function'
+    ? command.response(params)
+    : command.response;
+
+  await displayDelayedOutput(
+    Array.isArray(response) ? response.join('\n') : response,
+    command.delay || 100
+  );
+}
+
+
+
+// Enhanced output display with typing effect
+async function displayDelayedOutput(text, baseDelay = 100) {
+  const lines = Array.isArray(text) ? text : text.split('\n');
+  
+  for (const line of lines) {
+    if (line.trim() === '') continue;
+    
+    const originalLength = consoleOutput.textContent.length;
+    for (let i = 0; i < line.length; i++) {
+      consoleOutput.textContent = consoleOutput.textContent.substring(0, originalLength) + 
+                                 line.substring(0, i+1);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      await new Promise(r => setTimeout(r, 20 + Math.random() * 30));
+    }
+    
+    if (line !== lines[lines.length - 1]) {
+      consoleOutput.textContent += '\n';
+    }
+    
+    await new Promise(r => setTimeout(r, baseDelay + Math.random() * 50));
+  }
+}
+
+// Console input handler
+consoleInput.addEventListener('keydown', async (e) => {
+  // Command history navigation
+  if (e.key === 'ArrowUp') {
+    if (historyIndex > 0) {
+      historyIndex--;
+      consoleInput.value = commandHistory[historyIndex];
+    }
+    e.preventDefault();
+    return;
+  }
+  
+  if (e.key === 'ArrowDown') {
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      consoleInput.value = commandHistory[historyIndex];
+    } else {
+      consoleInput.value = '';
+      historyIndex = commandHistory.length;
+    }
+    e.preventDefault();
+    return;
+  }
+
+  // Command execution
+  if (e.key === 'Enter') {
+    const cmd = consoleInput.value.trim();
+    consoleInput.value = ''; // Clear input immediately
+    if (cmd) {
+      await processCommand(cmd);
+    }
+    e.preventDefault();
+  }
+});
+
+// ========== BLUE BOX FUNCTIONS ==========
+function clearToneOutput() {
+  toneOutput.textContent = 'TONE OUT: ';
+  toneSequence = '';
+}
+
+function transitionToConsole() {
+  document.getElementById('bluebox').classList.remove('active');
+  document.getElementById('operatorConsole').classList.add('active');
+  consoleInput.focus();
+  appendConsoleOutput('*** TRUNK SEIZED ***\n*** ROUTING TO OPERATOR CONSOLE... ***');
+}
+
+function transitionToBluebox() {
+  document.getElementById('bluebox').classList.add('active');
+  document.getElementById('operatorConsole').classList.remove('active');
+  toneOutput.textContent = "*** TRUNK RELEASED ***\n*** ROUTING OUT OF CONSOLE ***";
+}
+
+// Autodial functions
+function autodialEurope() {
+  const tones = ["0", "1", "0", "4", "4", "7", "3", "2"];
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  playToneSequence(tones, "European Node Secure Line");
+}
+
+function autodialNAmerica() {
+  const tones = ["0", "1", "3", "7", "2", "2", "4", "2"];
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  playToneSequence(tones, "North American Node Secure Line");
+}
+
+function autodialCanada() {
+  const tones = ["0", "1", "8", "2", "5", "9", "0", "1"];
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  playToneSequence(tones, "Canadian Node Secure Line");
+}
+
+function autodialAustralia() {
+  const tones = ["0", "1", "1", "0", "8", "9", "4", "2"];
+  toneOutput.textContent = "Dialing International Trunk...\n";
+  playToneSequence(tones, "Australian Node Secure Line");
+}
+
+function playToneSequence(tones, successMessage) {
+  let index = 0;
+  function playNextTone() {
+    if (index < tones.length) {
+      toneOutput.textContent += ">> " + tones[index] + " ";
+      index++;
+      setTimeout(playNextTone, 500);
+    } else {
+      toneOutput.textContent += `\nCONNECTED: ${successMessage}.`;
+    }
+  }
+  playNextTone();
+}
+
+// ========== KEYBOARD SHORTCUTS ==========
+document.addEventListener('keydown', (e) => {
+  // Blue box keyboard input
+  const validKeys = ["0","1","2","3","4","5","6","7","8","9","*","#","A","B","C","D","a","b","c","d"];
+  if (validKeys.includes(e.key)) {
+    const btn = Array.from(document.querySelectorAll(".key")).find(k => k.textContent === e.key);
+    if (btn) btn.click();
+    return;
+  }
+
+  // Special shortcuts (require CTRL+ALT)
+  if (!e.altKey || !e.ctrlKey) return;
+  e.preventDefault();
+
+  const activeConsole = document.getElementById('bluebox').classList.contains('active') ? 
+    'bluebox' : 'operator';
+
+  switch (e.key.toLowerCase()) {
+    // Blue box shortcuts
+    case 'z':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Locked\nCaller ID: +441234567890\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal Locked\nCaller ID: +441234567890\n");
+      break;
+    case 'x':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Failed\nCaller ID: Unknown!\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nBaud Rate: 2400bps\nTTY Stream Active - Data Written To Store\n");
+      break;
+    case 'c':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** OUTGOING CALL ***\nSignal: Locked\nCalled ID: +4401234567890\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL***\nSignal Locked\nCaller geolocated: 51.012N 0.1342W - London, UK\n");
+      break;
+    case 'v':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** OUTGOING CALL ***\nSignal: Failed\nCalled ID: Unknown!\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal Locked\nMonitoring: ACTIVE\n");
+      break;
+    case 'b':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** INCOMING CALL ***\nData Stream: Locked\nStream IDs: 192.168.10.1 >> 10.10.1.22\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nBaud Rate: 2400bps\nEncrypted Data Stream Detected - Data Written To Store\n");
+      break;
+    case 'n':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** INCOMING CALL ***\nData Stream: Failed\nStream IDs: Unknown!\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal Locked\nCloning IMSI Data - Handset Spoof\n");
+      break;
+    case 'm':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** OUTGOING CALL ***\nData Stream: Locked\nStream IDs: 10.10.1.22 >> 192.168.10.1\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\nSignal: Failed\nUnable to Proceed!\n");
+      break;
+    case '.':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** SATELLITE LINK ***\nAccessing... \nData Link Established\n";
+      else appendConsoleOutput("*** INTERCEPTING INCOMING CALL ***\n*** IMSI Identified and Isolated\n*** IMSI: 234157722162728");
+      break;
+    case '/':
+      if (activeConsole === 'bluebox') toneOutput.textContent = "*** SATELLITE LINK ***\nAccessing... \nLink Failed!\n";
+      else appendConsoleOutput("*** INTERCEPTING OUTGOING CALL ***\n*** IMSI Identified and Isolated\n*** IMSI: 234117539342815");      
+      break;
+    case ';':
+      if (activeConsole === 'bluebox') {
+        toneOutput.textContent = "*** CONTINUOUS PHASE TEST ***\nLine Fault: FOUND! \nRecommend: Activate Loopback Test\n";
+      } else {
+        transitionToBluebox();
+      }
+      break;
+    case '\'':
+      if (activeConsole === 'operator') {
+        consoleOutput.textContent = '';
+        appendConsoleOutput('Console cleared. Ready for new commands.');
+      }
+      break;
+  }
+});
+
+// Helper functions
+function appendConsoleOutput(text) {
+  // Ensure we always have a newline before adding more text if there's existing content
+  if (consoleOutput.textContent && !consoleOutput.textContent.endsWith('\n')) {
+    consoleOutput.textContent += '\n';
+  }
+  consoleOutput.textContent += text;
+  consoleOutput.scrollTop = consoleOutput.scrollHeight;
+}
+
+// Initialize console
+window.addEventListener('DOMContentLoaded', () => {
+  appendConsoleOutput('*** BELL SYSTEM OPERATOR CONSOLE ***');
+  consoleInput.focus();
+});
+</script>
+</body>
+</html>
