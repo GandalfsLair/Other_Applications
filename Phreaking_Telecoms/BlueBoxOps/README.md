@@ -29,7 +29,7 @@ If a code is entered into the Keypad which ends with:            This gives this
                                                                  Priority Call Trace Initiated...
 123                                                              *** LINE SEIZED ***
                                                                  Line Closed: OVERRIDE ACTIVE
-###                                                              *** LINE TEST ENGAGED ***
+>###                                                             *** LINE TEST ENGAGED ***
                                                                  Line Signal: ACTIVE (Tone)
 ***                                                              *** LINE TEST ENGAGED ***
                                                                  Line Signal: ACTIVE (Data)
