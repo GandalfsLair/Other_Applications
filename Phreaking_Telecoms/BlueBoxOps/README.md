@@ -21,6 +21,7 @@ When the program is loaded the user is faced with:
 Keypad Codes 
 
 If a code is entered into the Keypad which ends with:            This gives this output in the TONE OUT box:
+```
 137                                                              *** LOOPBACK TEST: ACTIVE ***
                                                                  System Reset: IN EFFECT
 911                                                              *** EMERGENCY OVERRIDE CODE RECOGNIZED ***
@@ -29,7 +30,7 @@ If a code is entered into the Keypad which ends with:            This gives this
                                                                  Priority Call Trace Initiated...
 123                                                              *** LINE SEIZED ***
                                                                  Line Closed: OVERRIDE ACTIVE
->###                                                             *** LINE TEST ENGAGED ***
+###                                                             *** LINE TEST ENGAGED ***
                                                                  Line Signal: ACTIVE (Tone)
 ***                                                              *** LINE TEST ENGAGED ***
                                                                  Line Signal: ACTIVE (Data)
@@ -52,20 +53,23 @@ If a code is entered into the Keypad which ends with:            This gives this
 *#0                                                              Move to the Operator Console
 
 00*                                                              Clear the TONE OUT box
+```
 
 HOW DO I ADD A NEW 'SECRET CODE'?
 
 The code for a secret code is written as;
-
+```
         if (toneSequence.endsWith('!!ADD YOUR CODE HERE!!')) {
             toneOutput.textContent = "ADD YOUR TEXT\nIf your text needs to go over multiple lines then a \n (new line) marker will give this. Always end with a \n";
             }
+```
 
 Key Press Events 
 
 These are linked to the the KEY + ALT + CTRL.
 
 If you press the KEY:      The Following is added to the window:
+```
 z                          *** INCOMING CALL ***
                            Signal: Locked
                            Caller ID: +441234567890
@@ -108,13 +112,16 @@ m                          *** OUTGOING CALL ***
 ;                          *** CONTINUOUS PHASE TEST ***
                            Line Fault: FOUND!
                            Recommend: Activate Loopback Test
+```
 
 HOW DO I ADD A KEY PRESS EVENT?
 
 The code for adding a Key Press event is written as;
+```
            case 'z':
            toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Locked\nCaller ID: +441234567890\n";
            break;
+```
 
 This breaks down to:
 
@@ -129,7 +136,7 @@ The OPERATOR Toolbox
 Commands that can be entered into the Command Line of the OPERATOR Console.
 
 Commands that are entered:        Give the following results:
-
+```
 login operator                    [!] Login accepted.
                                   [*] Access Level: OPERATOR
                                   [*] Connected to Main Trunk Router...
@@ -267,13 +274,15 @@ device scan                       [*] Caller ID: +441234567890
                                   [!] Accessing Device Basecode...
                                   [!] Scanning for Access Anomolies...
                                   [*] No Anomolies Detected: Device is Clean!
+```
 
 ADDING A NEW COMMAND
 
 In the const fakeCommands array, add your new command. 
 These follow this formatting:
-
+```
       'COMMAND NAME': 'YOUR TEXT\n With the usual New line signifier',
+```
 
 Try to add a new command before the last one, to avoid syntax issues!!
 
@@ -282,6 +291,7 @@ Key Press Events
 These are linked to the the KEY + ALT + CTRL.
 
 If you press the KEY:      The Following is added to the window:
+```
 z                          *** INTERCEPTING INCOMING CALL ***
                            Signal Locked\nCaller ID: +441234567890
           
@@ -312,13 +322,16 @@ m                          *** INTERCEPTING INCOMING CALL***
 \                          clear the Console window
 
 ;                          Move to Blue Box Console
+```
 
 HOW DO I ADD A KEY PRESS EVENT?
 
 The code for adding a Key Press event is written as;
+```
            case 'z':
            toneOutput.textContent = "*** INCOMING CALL ***\nSignal: Locked\nCaller ID: +441234567890\n";
            break;
+```
 
 This breaks down to:
 
@@ -333,18 +346,19 @@ AUTO DIAL FUNCTIONS
 These are pre programmed sequences that, at least initially, represents the user accessing specific international dialling blocks.
 
 They can be accessed from:
-
+```
   The Function Panal buttons
   The Key Pad on the BlueBox Console
     Code ends *11 - Access autodial Europe fuction
     Code ends #11 - Access autodial NAmerica function
     Code ends **1 - Access autodial Canada function
     Code ends ##1 - Access autodial Australia function
+```
 
 ADDING A NEW AUTODIAL FUNCTION
 
 Found under the //DRAMATIC SEQUENCE header this code reads;
-
+```
 function autodialEurope() {
   const tones = ["0", "1", "0", "4", "4", "7", "3", "2"];
   const toneOutput = document.getElementById("toneOutput");
@@ -361,13 +375,18 @@ function autodialEurope() {
   }
   playNextTone();
 }
+```
+The playNextTone functionality was never added.
 
 To create a new function:
-  Amend the numbers in:-  
+  Amend the numbers in:- 
+  ```
     const tones = ["0", "1", "0", "4", "4", "7", "3", "2"];
+  ```
   Amend the final message in:-
-        toneOutput.textContent += "\nCONNECTED: European Node Secure Line.";
-
+  ```
+    toneOutput.textContent += "\nCONNECTED: European Node Secure Line.";
+  ```
 
 UPDATES 
 
